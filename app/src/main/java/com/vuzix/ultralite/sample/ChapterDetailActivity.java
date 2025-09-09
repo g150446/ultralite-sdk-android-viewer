@@ -52,13 +52,54 @@ public class ChapterDetailActivity extends AppCompatActivity {
         // Extract text inside <p> tags only
         java.util.regex.Pattern pTag = java.util.regex.Pattern.compile("<p[^>]*>(.*?)</p>", java.util.regex.Pattern.DOTALL);
         java.util.regex.Matcher matcher = pTag.matcher(xhtmlContent);
-        java.util.List<String> partsList = new java.util.ArrayList<>();
+        StringBuilder allText = new StringBuilder();
+        
+        // Collect all paragraph text in order
         while (matcher.find()) {
             String text = matcher.group(1).replaceAll("<[^>]+>", "").trim(); // Remove any nested tags
             if (!text.isEmpty()) {
-                partsList.add(text);
+                allText.append(text);
+                if (!text.endsWith(".") && !text.endsWith("!") && !text.endsWith("?")) {
+                    allText.append(" ");
+                } else {
+                    allText.append(" ");
+                }
             }
         }
+        
+        // Split text into properly sized chunks for display, ensuring sentences stay intact
+        String fullText = allText.toString().trim();
+        java.util.List<String> partsList = new java.util.ArrayList<>();
+        
+        if (!fullText.isEmpty()) {
+            // Split by sentences, keeping punctuation
+            String[] sentences = fullText.split("(?<=[.!?])\\s+");
+            StringBuilder currentChunk = new StringBuilder();
+            int maxChunkLength = 400; // Adjust based on display capacity
+            
+            for (String sentence : sentences) {
+                sentence = sentence.trim();
+                if (sentence.isEmpty()) continue;
+                
+                // If adding this sentence would exceed max length, start a new chunk
+                if (currentChunk.length() > 0 && 
+                    (currentChunk.length() + sentence.length() + 1) > maxChunkLength) {
+                    partsList.add(currentChunk.toString().trim());
+                    currentChunk = new StringBuilder();
+                }
+                
+                if (currentChunk.length() > 0) {
+                    currentChunk.append(" ");
+                }
+                currentChunk.append(sentence);
+            }
+            
+            // Add the last chunk if it has content
+            if (currentChunk.length() > 0) {
+                partsList.add(currentChunk.toString().trim());
+            }
+        }
+        
         String[] parts = partsList.toArray(new String[0]);
         ChapterDetailViewModel model = new ViewModelProvider(this).get(ChapterDetailViewModel.class);
         model.sendContentToGlasses(parts);
