@@ -17,5 +17,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".ChaptersActivity" android:exported="false"/>
+    <activity android:name=".ChapterDetailActivity" android:exported="false"/>
     </application>
 </manifest>

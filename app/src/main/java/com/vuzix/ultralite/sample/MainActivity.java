@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
         ImageView controlledImageView = findViewById(R.id.controlled);
         Button demoButton = findViewById(R.id.run_demo);
         Button notificationButton = findViewById(R.id.send_notification);
+        Button readBookButton = findViewById(R.id.btnReadBook);
 
         // Get the instance of the SDK
         UltraliteSDK ultralite = UltraliteSDK.get(this);
@@ -90,6 +91,21 @@ public class MainActivity extends AppCompatActivity {
         // Now set the click listeners to kick-off the two demos
         demoButton.setOnClickListener(v -> model.runDemo());
         notificationButton.setOnClickListener(v -> sendSampleNotification() );
+        readBookButton.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(this, ChaptersActivity.class);
+            startActivity(intent);
+        });
+    }
+
+    // Helper method to extract chapter names from toc.xhtml
+    private java.util.List<String> extractChaptersFromToc(String tocContent) {
+        java.util.List<String> chapters = new java.util.ArrayList<>();
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<a[^>]*>(.*?)</a>");
+        java.util.regex.Matcher matcher = pattern.matcher(tocContent);
+        while (matcher.find()) {
+            chapters.add(matcher.group(1));
+        }
+        return chapters;
     }
 
     /**
@@ -119,9 +135,39 @@ public class MainActivity extends AppCompatActivity {
     public static class DemoActivityViewModel extends AndroidViewModel {
 
         private final UltraliteSDK ultralite;
-
         private final MutableLiveData<Boolean> running = new MutableLiveData<>();
         private boolean haveControlOfGlasses;
+        private boolean shouldStartDemo = false; // Add flag to control when demo should start
+
+        // Static reference to demo thread for forced interruption
+        private static Thread demoThread;
+
+        public static void stopDemoIfRunning(UltraliteSDK ultralite) {
+            // Always clear content, regardless of thread state
+            if (demoThread != null && demoThread.isAlive()) {
+                demoThread.interrupt();
+            }
+            
+            // Clear all demo content
+            ultralite.getCanvas().clearBackground();
+            
+            // Clear text elements
+            for (int textId = 0; textId < 20; textId++) {
+                ultralite.getCanvas().removeText(textId);
+            }
+            
+            // Clear images
+            for (int imageId = 0; imageId < 20; imageId++) {
+                ultralite.getCanvas().removeImage(imageId);
+            }
+            
+            // Clear animations
+            for (int animId = 0; animId < 20; animId++) {
+                ultralite.getCanvas().removeAnimation(animId);
+            }
+            
+            ultralite.getCanvas().commit();
+        }
 
         public DemoActivityViewModel(@NonNull Application application) {
             super(application);
@@ -142,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
         // an application will have other logic that drives the UI, and the Z100 output will be
         // driven by that.
         private void runDemo() {
+            shouldStartDemo = true; // Set flag that demo should start
             if (haveControlOfGlasses) {
                 startDemoThread();
             } else {
@@ -150,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void startDemoThread() {
-            new Thread(() -> {
+            demoThread = new Thread(() -> {
                 // Always be sure we have control before any drawing starts
                 if(haveControlOfGlasses) {
                     running.postValue(true);
@@ -174,7 +221,8 @@ public class MainActivity extends AppCompatActivity {
                     }
                     running.postValue(false);
                 }
-            }).start();
+            });
+            demoThread.start();
         }
 
         // This is a convenience class to pause our thread and generate a Stop exception if the
@@ -197,12 +245,17 @@ public class MainActivity extends AppCompatActivity {
             if (controlled) {
                 // We wait to start the demo until the SDK confirms we have received control.
                 haveControlOfGlasses = true;
-                startDemoThread();
+                // Only start demo if it was explicitly requested
+                if (shouldStartDemo) {
+                    startDemoThread();
+                    shouldStartDemo = false; // Reset flag after starting
+                }
             } else {
                 // If we later lose control of the glasses we stop the demo. (Your app may choose to
                 // continue running without the glasses UI and wait for them to reconnect to begin,
                 // streaming to them again.).
                 haveControlOfGlasses = false;
+                shouldStartDemo = false; // Reset flag when losing control
             }
         };
     }
