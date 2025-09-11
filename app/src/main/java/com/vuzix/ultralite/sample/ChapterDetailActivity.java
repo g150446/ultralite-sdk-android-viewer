@@ -84,8 +84,14 @@ public class ChapterDetailActivity extends AppCompatActivity {
                 // If adding this sentence would exceed max length, start a new chunk
                 if (currentChunk.length() > 0 && 
                     (currentChunk.length() + sentence.length() + 1) > maxChunkLength) {
-                    partsList.add(currentChunk.toString().trim());
-                    currentChunk = new StringBuilder();
+                    
+                    // Only create a new chunk if the current chunk has substantial content (at least 50 chars)
+                    // This prevents tiny fragments from becoming separate chunks
+                    if (currentChunk.length() >= 50) {
+                        partsList.add(currentChunk.toString().trim());
+                        currentChunk = new StringBuilder();
+                    }
+                    // If current chunk is too small, keep adding to it even if it exceeds maxChunkLength
                 }
                 
                 if (currentChunk.length() > 0) {

@@ -7,6 +7,7 @@ import android.view.MenuItem;
 import android.widget.ListView;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import java.util.List;
@@ -46,6 +47,12 @@ public class ChaptersActivity extends AppCompatActivity {
                 intent.putExtra("chapter_title", item.title);
                 startActivity(intent);
             });
+            
+            // Add long press listener to send content from selected chapter to end
+            listView.setOnItemLongClickListener((parent, view, position, id) -> {
+                sendChaptersFromIndexToEnd(position);
+                return true; // Consume the long press event
+            });
         } else {
             android.util.Log.e(TAG, "No chapters found or failed to parse toc.xhtml");
         }
@@ -76,6 +83,18 @@ public class ChaptersActivity extends AppCompatActivity {
     private void sendAllChaptersToGlasses() {
         if (chapterItems != null && !chapterItems.isEmpty()) {
             chaptersViewModel.sendAllChaptersToGlasses(chapterItems);
+        }
+    }
+    
+    private void sendChaptersFromIndexToEnd(int startIndex) {
+        if (chapterItems != null && !chapterItems.isEmpty() && startIndex >= 0 && startIndex < chapterItems.size()) {
+            ChapterItem selectedChapter = chapterItems.get(startIndex);
+            int remainingChapters = chapterItems.size() - startIndex;
+            
+            String message = "Sending from \"" + selectedChapter.title + "\" to end (" + remainingChapters + " chapters)";
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            
+            chaptersViewModel.sendChaptersFromIndexToEnd(chapterItems, startIndex);
         }
     }
     

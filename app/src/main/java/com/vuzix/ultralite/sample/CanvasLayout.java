@@ -37,35 +37,61 @@ public class CanvasLayout {
         }
         ultralite.getCanvas().commit();
         
-        // Display content parts
-        int totalParts = contentParts.length;
-        for (int partIndex = 0; partIndex < totalParts; partIndex++) {
-            String currentPart = contentParts[partIndex];
+        // Filter out very short content parts that might cause display issues
+        java.util.List<String> filteredParts = new java.util.ArrayList<>();
+        for (String part : contentParts) {
+            if (part != null && part.trim().length() > 10) { // Minimum 10 characters
+                filteredParts.add(part);
+            } else {
+                android.util.Log.d("CanvasLayout", "Filtering out short part: \"" + part + "\" (length: " + (part != null ? part.length() : 0) + ")");
+            }
+        }
+        
+        // Convert all parts into a single continuous stream of lines
+        java.util.List<String> allLines = new java.util.ArrayList<>();
+        for (int partIndex = 0; partIndex < filteredParts.size(); partIndex++) {
+            String currentPart = filteredParts.get(partIndex);
+            
+            // Log the actual content part being processed
+            android.util.Log.d("CanvasLayout", "Part " + (partIndex + 1) + "/" + filteredParts.size() + ": \"" + currentPart + "\" (length: " + currentPart.length() + ")");
             
             // Split the current part into lines that fit the display
             String[] lines = splitTextIntoLines(currentPart, textFieldWidth);
             
-            android.util.Log.d("CanvasLayout", "Part " + (partIndex + 1) + "/" + totalParts + " split into " + lines.length + " lines");
+            android.util.Log.d("CanvasLayout", "Part " + (partIndex + 1) + "/" + filteredParts.size() + " split into " + lines.length + " lines");
             
-            // Display lines in chunks that fit on screen
-            for (int lineStart = 0; lineStart < lines.length; lineStart += maxLines) {
-                // Clear all text fields first
-                for (int i = 0; i < maxLines; i++) {
-                    ultralite.getCanvas().updateText(textIds[i], "");
+            // Add all lines from this part to the continuous stream
+            for (String line : lines) {
+                if (line != null && !line.trim().isEmpty()) {
+                    allLines.add(line.trim());
                 }
-                
-                // Fill text fields with current lines
-                for (int i = 0; i < maxLines && (lineStart + i) < lines.length; i++) {
-                    String line = lines[lineStart + i].trim();
-                    ultralite.getCanvas().updateText(textIds[i], line);
-                    android.util.Log.d("CanvasLayout", "Displaying line " + (i + 1) + ": \"" + line + "\" (length: " + line.length() + ")");
-                }
-                ultralite.getCanvas().commit();
-                
-                try {
-                    Thread.sleep(15000); // Wait 15 seconds before next screen
-                } catch (InterruptedException ignored) {}
             }
+        }
+        
+        android.util.Log.d("CanvasLayout", "Total lines to display: " + allLines.size());
+        
+        // Display all lines continuously, filling each screen completely
+        int lineIndex = 0;
+        while (lineIndex < allLines.size()) {
+            // Clear all text fields first
+            for (int i = 0; i < maxLines; i++) {
+                ultralite.getCanvas().updateText(textIds[i], "");
+            }
+            
+            // Fill text fields with lines, maximizing screen usage
+            int displayIndex = 0;
+            while (lineIndex < allLines.size() && displayIndex < maxLines) {
+                String line = allLines.get(lineIndex);
+                ultralite.getCanvas().updateText(textIds[displayIndex], line);
+                android.util.Log.d("CanvasLayout", "Displaying line " + (displayIndex + 1) + ": \"" + line + "\" (length: " + line.length() + ")");
+                displayIndex++;
+                lineIndex++;
+            }
+            ultralite.getCanvas().commit();
+            
+            try {
+                Thread.sleep(15000); // Wait 15 seconds before next screen
+            } catch (InterruptedException ignored) {}
         }
         
         // Clean up text fields after done
@@ -157,8 +183,16 @@ public class CanvasLayout {
             android.util.Log.d("CanvasLayout", "Added final line: " + currentLine.toString());
         }
         
-        android.util.Log.d("CanvasLayout", "Text splitting complete. Created " + lines.size() + " lines");
+        // Filter out any empty lines that might have been created
+        java.util.List<String> filteredLines = new java.util.ArrayList<>();
+        for (String line : lines) {
+            if (line != null && !line.trim().isEmpty()) {
+                filteredLines.add(line.trim());
+            }
+        }
         
-        return lines.toArray(new String[0]);
+        android.util.Log.d("CanvasLayout", "Text splitting complete. Created " + filteredLines.size() + " non-empty lines (filtered from " + lines.size() + " total lines)");
+        
+        return filteredLines.toArray(new String[0]);
     }
 }

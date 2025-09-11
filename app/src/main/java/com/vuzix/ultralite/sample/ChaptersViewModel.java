@@ -61,12 +61,28 @@ public class ChaptersViewModel extends AndroidViewModel {
         }
     }
 
+    public void sendChaptersFromIndexToEnd(List<ChapterItem> chapters, int startIndex) {
+        this.chapterItems = chapters;
+        this.currentChapterIndex = startIndex;
+        this.shouldStop = false;
+        if (haveControlOfGlasses) {
+            startSendChaptersFromIndexThread();
+        } else {
+            ultralite.requestControl();
+        }
+    }
+
     public void stopSending() {
         shouldStop = true;
         sending.postValue(false);
     }
 
     private void startSendAllChaptersThread() {
+        this.currentChapterIndex = 0;
+        startSendChaptersFromIndexThread();
+    }
+
+    private void startSendChaptersFromIndexThread() {
         // Force stop any running demo and clear demo content
         MainActivity.DemoActivityViewModel.stopDemoIfRunning(ultralite);
         
@@ -122,7 +138,8 @@ public class ChaptersViewModel extends AndroidViewModel {
     }
 
     private void sendChaptersSequentially() {
-        for (currentChapterIndex = 0; currentChapterIndex < chapterItems.size() && !shouldStop; currentChapterIndex++) {
+        for (int index = currentChapterIndex; index < chapterItems.size() && !shouldStop; index++) {
+            currentChapterIndex = index;
             ChapterItem chapter = chapterItems.get(currentChapterIndex);
             
             // Update current chapter info on main thread
@@ -187,8 +204,14 @@ public class ChaptersViewModel extends AndroidViewModel {
                 // If adding this sentence would exceed max length, start a new chunk
                 if (currentChunk.length() > 0 && 
                     (currentChunk.length() + sentence.length() + 1) > maxChunkLength) {
-                    partsList.add(currentChunk.toString().trim());
-                    currentChunk = new StringBuilder();
+                    
+                    // Only create a new chunk if the current chunk has substantial content (at least 50 chars)
+                    // This prevents tiny fragments from becoming separate chunks
+                    if (currentChunk.length() >= 50) {
+                        partsList.add(currentChunk.toString().trim());
+                        currentChunk = new StringBuilder();
+                    }
+                    // If current chunk is too small, keep adding to it even if it exceeds maxChunkLength
                 }
                 
                 if (currentChunk.length() > 0) {
@@ -227,7 +250,7 @@ public class ChaptersViewModel extends AndroidViewModel {
     private final Observer<Boolean> controlledObserver = controlled -> {
         haveControlOfGlasses = controlled;
         if (controlled && chapterItems != null && !chapterItems.isEmpty()) {
-            startSendAllChaptersThread();
+            startSendChaptersFromIndexThread();
         }
     };
 }
