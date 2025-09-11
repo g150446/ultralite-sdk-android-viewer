@@ -45,6 +45,8 @@ public class CanvasLayout {
             // Split the current part into lines that fit the display
             String[] lines = splitTextIntoLines(currentPart, textFieldWidth);
             
+            android.util.Log.d("CanvasLayout", "Part " + (partIndex + 1) + "/" + totalParts + " split into " + lines.length + " lines");
+            
             // Display lines in chunks that fit on screen
             for (int lineStart = 0; lineStart < lines.length; lineStart += maxLines) {
                 // Clear all text fields first
@@ -56,6 +58,7 @@ public class CanvasLayout {
                 for (int i = 0; i < maxLines && (lineStart + i) < lines.length; i++) {
                     String line = lines[lineStart + i].trim();
                     ultralite.getCanvas().updateText(textIds[i], line);
+                    android.util.Log.d("CanvasLayout", "Displaying line " + (i + 1) + ": \"" + line + "\" (length: " + line.length() + ")");
                 }
                 ultralite.getCanvas().commit();
                 
@@ -73,43 +76,77 @@ public class CanvasLayout {
     }
     
     /**
-     * Split text into lines that fit within the specified width
+     * Split text into lines that fit within the specified width, preserving sentence boundaries
      */
     private static String[] splitTextIntoLines(String text, int maxWidth) {
         java.util.List<String> lines = new java.util.ArrayList<>();
-        String[] words = text.split("\\s+");
+        
+        // Use more conservative character limit for smart glasses
+        int maxCharsPerLine = 40; // Fixed conservative limit for smart glasses
+        
+        android.util.Log.d("CanvasLayout", "Splitting text of length " + text.length() + " with max " + maxCharsPerLine + " chars per line");
+        
+        // First try to split by sentences to preserve meaning
+        String[] sentences = text.split("(?<=[.!?])\\s+");
         StringBuilder currentLine = new StringBuilder();
         
-        int approximateCharWidth = 14; // More conservative character width estimate
-        int maxCharsPerLine = (maxWidth / approximateCharWidth) - 2; // Extra safety margin
+        android.util.Log.d("CanvasLayout", "Found " + sentences.length + " sentences to process");
         
-        for (String word : words) {
-            if (word.isEmpty()) continue;
+        // Process sentences to maintain context and meaning
+        for (String sentence : sentences) {
+            if (sentence.trim().isEmpty()) continue;
             
-            // Check if adding this word would exceed the line length
-            String testLine = currentLine.length() == 0 ? word : currentLine + " " + word;
+            // Check if entire sentence fits on current line
+            String testLine = currentLine.length() == 0 ? sentence.trim() : currentLine + " " + sentence.trim();
             
             if (testLine.length() <= maxCharsPerLine) {
+                // Entire sentence fits
                 if (currentLine.length() > 0) {
                     currentLine.append(" ");
                 }
-                currentLine.append(word);
+                currentLine.append(sentence.trim());
             } else {
-                // Add current line if it has content
+                // Sentence doesn't fit, finalize current line if it has content
                 if (currentLine.length() > 0) {
                     lines.add(currentLine.toString());
                     currentLine = new StringBuilder();
                 }
                 
-                // Handle very long words
-                if (word.length() > maxCharsPerLine) {
-                    // Split long words
-                    for (int i = 0; i < word.length(); i += maxCharsPerLine) {
-                        int endIndex = Math.min(i + maxCharsPerLine, word.length());
-                        lines.add(word.substring(i, endIndex));
+                // Now handle the sentence - split by words if needed
+                if (sentence.trim().length() > maxCharsPerLine) {
+                    String[] words = sentence.trim().split("\\s+");
+                    
+                    for (String word : words) {
+                        if (word.isEmpty()) continue;
+                        
+                        String testWordLine = currentLine.length() == 0 ? word : currentLine + " " + word;
+                        
+                        if (testWordLine.length() <= maxCharsPerLine) {
+                            if (currentLine.length() > 0) {
+                                currentLine.append(" ");
+                            }
+                            currentLine.append(word);
+                        } else {
+                            // Word doesn't fit, finalize current line
+                            if (currentLine.length() > 0) {
+                                lines.add(currentLine.toString());
+                                currentLine = new StringBuilder();
+                            }
+                            
+                            // Handle very long words by splitting them
+                            if (word.length() > maxCharsPerLine) {
+                                for (int i = 0; i < word.length(); i += maxCharsPerLine) {
+                                    int endIndex = Math.min(i + maxCharsPerLine, word.length());
+                                    lines.add(word.substring(i, endIndex));
+                                }
+                            } else {
+                                currentLine.append(word);
+                            }
+                        }
                     }
                 } else {
-                    currentLine.append(word);
+                    // Sentence fits within limit, add it to current line
+                    currentLine.append(sentence.trim());
                 }
             }
         }
@@ -117,7 +154,10 @@ public class CanvasLayout {
         // Add the last line if it has content
         if (currentLine.length() > 0) {
             lines.add(currentLine.toString());
+            android.util.Log.d("CanvasLayout", "Added final line: " + currentLine.toString());
         }
+        
+        android.util.Log.d("CanvasLayout", "Text splitting complete. Created " + lines.size() + " lines");
         
         return lines.toArray(new String[0]);
     }
