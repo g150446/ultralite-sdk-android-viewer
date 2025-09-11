@@ -1,6 +1,9 @@
 package com.vuzix.ultralite.sample;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.view.WindowManager;
 import android.webkit.WebView;
 import androidx.appcompat.app.AppCompatActivity;
 import java.io.IOException;
@@ -12,10 +15,24 @@ import androidx.lifecycle.ViewModelProvider;
 // ...existing imports...
 
 public class ChapterDetailActivity extends AppCompatActivity {
+    private PowerManager.WakeLock wakeLock;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chapter_detail);
+        
+        // Keep screen awake - multiple approaches for maximum compatibility
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        
+        // Initialize wake lock as backup method
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "UltraliteSDK:ChapterDetailKeepScreenAwake");
+        
+        // Acquire wake lock
+        if (!wakeLock.isHeld()) {
+            wakeLock.acquire();
+        }
 
         String chapterFilePath = getIntent().getStringExtra("chapter_file_path");
         String chapterTitle = getIntent().getStringExtra("chapter_title");
@@ -128,6 +145,31 @@ public class ChapterDetailActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Re-acquire wake lock when activity resumes
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            wakeLock.acquire();
+        }
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Keep wake lock active even when paused to maintain screen awake
+        // Only release it in onDestroy to ensure screen stays awake
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Release wake lock when activity is destroyed
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
         }
     }
 }

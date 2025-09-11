@@ -12,7 +12,19 @@ import com.vuzix.ultralite.UltraliteSDK;
  * CanvasLayout for chapter content only (no demo content)
  */
 public class CanvasLayout {
+    
+    /**
+     * Show chapter content on the glasses display while keeping the phone screen awake
+     * to prevent interruption during long reading sessions
+     */
     public static void showChapterContent(Context context, UltraliteSDK ultralite, String[] contentParts) {
+        // Keep screen awake during content display
+        android.app.Activity activity = null;
+        if (context instanceof android.app.Activity) {
+            activity = (android.app.Activity) context;
+            activity.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            android.util.Log.d("CanvasLayout", "Screen will stay awake during content display");
+        }
         // Ensure we have a clean canvas layout
         ultralite.setLayout(Layout.CANVAS, 0, true);
         
@@ -99,6 +111,10 @@ public class CanvasLayout {
             ultralite.getCanvas().removeText(id);
         }
         ultralite.getCanvas().commit();
+        
+        // Note: We don't clear the FLAG_KEEP_SCREEN_ON here as the activity
+        // should manage its own wake lock lifecycle
+        android.util.Log.d("CanvasLayout", "Chapter content display completed");
     }
     
     /**
