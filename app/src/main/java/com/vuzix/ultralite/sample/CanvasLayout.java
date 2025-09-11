@@ -21,12 +21,12 @@ public class CanvasLayout {
             Thread.sleep(100);
         } catch (InterruptedException ignored) {}
         
-        int maxLines = 5; // Further reduced for better spacing
+        int maxLines = 6; // Increased from 5 to 6 lines per screen
         int textFieldWidth = UltraliteSDK.Canvas.WIDTH - 40; // More padding
         int textFieldHeight = 35; // Conservative height to prevent overlapping
         int[] textIds = new int[maxLines];
         int startY = 25; // Top margin
-        int lineSpacing = 60; // Generous spacing between lines to prevent overlap
+        int lineSpacing = 48; // Reduced from 60 to 48 pixels to fit 6 lines
         
         // Create text fields for chapter content with better positioning
         for (int i = 0; i < maxLines; i++) {
